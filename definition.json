@@ -1,0 +1,173 @@
+{
+  "database": "downloader",
+  "tables": [
+    {
+      "name": "downloadable",
+      "keys": [
+        {
+          "type": "pk",
+          "name": "pk_downloadable",
+          "fields": [
+            "id"
+          ]
+        },
+        {
+          "type": "index",
+          "name": "ix_url",
+          "fields": [
+            "url"
+          ]
+        }
+      ],
+      "fields": [
+        {
+          "name": "id",
+          "type": "Integer",
+          "required": "TRUE",
+          "auto_increment": "TRUE",
+          "default": ""
+        },
+        {
+          "name": "url",
+          "type": "String",
+          "required": "TRUE",
+          "auto_increment": "FALSE",
+          "default": ""
+        },
+        {
+          "name": "title",
+          "type": "String",
+          "required": "FALSE",
+          "auto_increment": "FALSE",
+          "default": ""
+        },
+        {
+          "name": "audio_only",
+          "type": "Boolean",
+          "required": "TRUE",
+          "auto_increment": "FALSE",
+          "default": "FALSE"
+        },
+        {
+          "name": "status",
+          "type": "String",
+          "required": "FALSE",
+          "auto_increment": "FALSE",
+          "default": ""
+        },
+        {
+          "name": "errors",
+          "type": "String",
+          "required": "FALSE",
+          "auto_increment": "FALSE",
+          "default": ""
+        },
+        {
+          "name": "retry_count",
+          "type": "Integer",
+          "required": "FALSE",
+          "auto_increment": "FALSE",
+          "default": ""
+        },
+        {
+          "name": "filename",
+          "type": "String",
+          "required": "FALSE",
+          "auto_increment": "FALSE",
+          "default": ""
+        },
+        {
+          "name": "create_date",
+          "type": "DateTime",
+          "required": "FALSE",
+          "auto_increment": "FALSE",
+          "default": ""
+        },
+        {
+          "name": "expiry_date",
+          "type": "DateTime",
+          "required": "FALSE",
+          "auto_increment": "FALSE",
+          "default": ""
+        },
+        {
+          "name": "width",
+          "type": "Integer",
+          "required": "FALSE",
+          "auto_increment": "FALSE",
+          "default": ""
+        },
+        {
+          "name": "height",
+          "type": "Integer",
+          "required": "FALSE",
+          "auto_increment": "FALSE",
+          "default": ""
+        },
+        {
+          "name": "length",
+          "type": "Integer",
+          "required": "FALSE",
+          "auto_increment": "FALSE",
+          "default": ""
+        },
+        {
+          "name": "file_size",
+          "type": "Integer",
+          "required": "FALSE",
+          "auto_increment": "FALSE",
+          "default": ""
+        },
+        {
+          "name": "callback",
+          "type": "String",
+          "required": "FALSE",
+          "auto_increment": "FALSE",
+          "default": ""
+        }
+      ]
+    },
+    {
+      "name": "progress",
+      "keys": [
+        {
+          "type": "pk",
+          "name": "pk_progress",
+          "fields": [
+            "id"
+          ]
+        }
+      ],
+      "fields": [
+        {
+          "name": "id",
+          "type": "Integer",
+          "required": "TRUE",
+          "auto_increment": "FALSE",
+          "default": ""
+        },
+        {
+          "name": "percentage",
+          "type": "String",
+          "required": "TRUE",
+          "auto_increment": "FALSE",
+          "default": ""
+        },
+        {
+          "name": "eta",
+          "type": "String",
+          "required": "TRUE",
+          "auto_increment": "FALSE",
+          "default": ""
+        },
+        {
+          "name": "speed",
+          "type": "String",
+          "required": "TRUE",
+          "auto_increment": "FALSE",
+          "default": ""
+        }
+      ]
+    }
+  ]
+}

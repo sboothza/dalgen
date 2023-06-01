@@ -1,0 +1,8 @@
+from base.session import Session
+
+
+class ConfigBase:
+    def __init__(self, connection_string: str = ""):
+        self.connection_string = connection_string
+        if "memory" in self.connection_string:
+            Session.__persist__ = True

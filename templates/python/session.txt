@@ -1,0 +1,76 @@
+import re
+
+from base.connection_base import ConnectionBase, SqliteConnection, MySqlConnection
+from base.managed_cursor import ManagedCursor
+
+
+class Session(object):
+    __global_connection__: ConnectionBase = None
+    __persist__: bool = False
+
+    def __init__(self, connection: ConnectionBase = None):
+
+        if self.__persist__:
+            if self.__global_connection__ is None:
+                self.__global_connection__ = connection
+
+            self.connection = self.__global_connection__
+        else:
+            self.connection = connection
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, type, value, traceback):
+        if not self.__persist__:
+            self.close()
+
+    def close(self, persist: bool = False):
+        if not self.__persist__ or persist:
+            self.connection.commit()
+            self.connection.close()
+
+    def execute(self, query: str, params={}) -> None:
+        self.connection.execute(query, params)
+
+    def fetch_scalar(self, query: str, params={}):
+        row = self.fetch_one(query, params)
+        if row is not None:
+            value = row[0]
+        else:
+            value = None
+        return value
+
+    def fetch_one(self, query: str, params={}):
+        cursor = self.connection.execute(query, params)
+        row = cursor.fetchone()
+        cursor.close()
+        return row
+
+    def fetch(self, query: str, params={}) -> ManagedCursor:
+        cursor = self.connection.execute(query, params)
+        return cursor
+
+
+class SessionFactory(object):
+    @staticmethod
+    def get_connection(connection_string: str) -> ConnectionBase:
+        match = re.search(r"(\w+):\/\/(.+)", connection_string)
+        if match:
+            db_type = match.group(1)
+
+            if db_type == "sqlite":
+                return SqliteConnection(connection_string)
+            elif db_type == "mysql":
+                return MySqlConnection(connection_string)
+
+    @staticmethod
+    def connect(connection_string: str) -> Session:
+        if Session.__persist__:
+            if Session.__global_connection__ is None:
+                Session.__global_connection__ = SessionFactory.get_connection(connection_string)
+
+            return Session(Session.__global_connection__)
+        else:
+            return Session(SessionFactory.get_connection(connection_string))
+

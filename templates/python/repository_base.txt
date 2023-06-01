@@ -1,0 +1,123 @@
+from base.session import Session, SessionFactory
+from base.table_base import TableBase
+
+
+class RepositoryBase:
+    __table_definition__ = TableBase
+
+    def __init__(self, connection_string: str):
+        self.connection_string = connection_string
+
+    def drop_schema(self):
+        with self.get_session() as session:
+            self._execute(self.__table_definition__.__drop_script__, session=session)
+
+    def schema_exists(self):
+        with self.get_session() as session:
+            script = self.__table_definition__.__table_exists_script__
+            name = self._fetch_scalar(script, session=session)
+            if name != self.__table_definition__.__table_name__:
+                return False
+
+        return True
+
+    def create_schema(self):
+        with self.get_session() as session:
+            self._execute(self.__table_definition__.__create_script__, session=session)
+
+    def get_session(self) -> Session:
+        return SessionFactory.connect(self.connection_string)
+
+    def _fetch_scalar(self, query: str, parameters={}, session: Session = None):
+        must_close = False
+        if session is None:
+            session = SessionFactory.connect(self.connection_string)
+            must_close = True
+
+        value = session.fetch_scalar(query, parameters)
+
+        if must_close:
+            session.close()
+
+        return value
+
+    def _fetch_one(self, query: str, parameters={}, session: Session = None):
+        must_close = False
+        if session is None:
+            session = SessionFactory.connect(self.connection_string)
+            must_close = True
+
+        value = session.fetch_one(query, parameters)
+
+        if must_close:
+            session.close()
+
+        return value
+
+    def fetch_one(self, query: str, parameters={}, session: Session = None) -> TableBase:
+        row = self._fetch_one(query, parameters, session)
+        if row:
+            return self.__table_definition__().map_row(row)
+        return None
+
+    def fetch(self, query: str, parameters={}, session: Session = None):
+        must_close = False
+        if session is None:
+            session = SessionFactory.connect(self.connection_string)
+            must_close = True
+
+        with session.fetch(query, parameters) as cursor:
+            rows = [self.__table_definition__().map_row(row) for row in cursor]
+
+        if must_close:
+            session.close()
+
+        return rows
+
+    def _execute(self, query: str, parameters={}, session: Session = None):
+        must_close = False
+        if session is None:
+            session = SessionFactory.connect(self.connection_string)
+            must_close = True
+
+        session.execute(query, parameters)
+
+        if must_close:
+            session.close()
+
+    def _execute_lastrowid(self, query: str, parameters={}, session: Session = None):
+        must_close = False
+        if session is None:
+            session = SessionFactory.connect(self.connection_string)
+            must_close = True
+
+        cursor = session.fetch(query, parameters)
+        lastrowid = cursor.lastrowid
+
+        if must_close:
+            session.close()
+
+        return lastrowid
+
+    def count(self):
+        script = self.__table_definition__.__table_count_script__
+        return self._fetch_scalar(script)
+
+    def _get_by_id(self, id: {}):
+        row = self._fetch_one(self.__table_definition__.__fetch_by_id_script__, id)
+        if row:
+            return self.__table_definition__().map_row(row)
+        return None
+
+    def _item_exists(self, id: {}):
+        cnt = self._fetch_scalar(self.__table_definition__.__item_exists_script__, id)
+        return cnt > 0
+
+    def add(self, item: TableBase, session: Session = None):
+        pass
+
+    def update(self, item: TableBase):
+        self._execute(item.__update_script__, item.get_update_params())
+
+    def _delete(self, id: {}):
+        self._execute(self.__table_definition__.__delete_script__, id)
