@@ -37,29 +37,30 @@ class SqliteAdaptor(Adaptor):
         return database
 
     def escape_field_list(self, values: List[str]) -> List[str]:
-        return ["\\\"" + value + "\\\"" for value in values]
+        return ["\"" + value + "\"" for value in values]
 
     def generate_create_script(self, table: Table) -> str:
         sql: list[str] = []
         for field in table.fields:
-            sql.append(f"\\\"{field.name.raw()}\\\" {self.get_field_type(field.type)} ")
+            sql.append(f"\"{field.name.raw()}\" {self.get_field_type(field.type)} ")
         if table.pk:
             sql.append(f"PRIMARY KEY ({','.join(self.escape_field_list(table.pk.fields))})")
 
         for fk in [key for key in table.keys if key.key_type == KeyType.ForeignKey]:
             sql.append(f"FOREIGN KEY ({','.join(self.escape_field_list(fk.fields))}) REFERENCES "
-                       f"\\\"{fk.primary_table}\\\"({','.join(self.escape_field_list(fk.primary_fields))})")
+                       f"\"{fk.primary_table}\"({','.join(self.escape_field_list(fk.primary_fields))})")
 
-        result = f"create table \\\"{table.name.raw()}\\\" ({','.join(sql)});"
+        joiner = ',\n\t'
+        result = f"create table \"{table.name.raw()}\" (\n\t{joiner.join(sql)}\n);\n"
 
         for key in table.keys:
             if key.key_type == KeyType.Unique:
-                result += f" CREATE UNIQUE INDEX \\\"{key.name.raw()}\\\" ON \\\"{table.name.raw()}\\\" " \
-                          f"({','.join(self.escape_field_list(key.fields))});"
+                result += f" CREATE UNIQUE INDEX \"{key.name.raw()}\" ON \"{table.name.raw()}\" " \
+                          f"({','.join(self.escape_field_list(key.fields))});\n"
 
             elif key.key_type == KeyType.Index:
-                result += f" CREATE INDEX \\\"{key.name.raw()}\\\" ON \\\"{table.name.raw()}\\\" " \
-                          f"({','.join(self.escape_field_list(key.fields))});"
+                result += f" CREATE INDEX \"{key.name.raw()}\" ON \"{table.name.raw()}\" " \
+                          f"({','.join(self.escape_field_list(key.fields))});\n"
 
         return result
 
@@ -67,7 +68,7 @@ class SqliteAdaptor(Adaptor):
         return f"SELECT name FROM sqlite_schema WHERE type='table' and name = '{table.name.raw()}'"
 
     def generate_count_script(self, table: Table) -> str:
-        return f"select count(*) from \\\"{table.name.raw()}\\\""
+        return f"select count(*) from \"{table.name.raw()}\""
 
     def generate_insert_script(self, table: Table) -> str:
         fields = [f.name.raw() for f in table.fields if not f.auto_increment]

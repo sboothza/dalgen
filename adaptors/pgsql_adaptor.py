@@ -1,20 +1,20 @@
 import re
 from typing import List
 
-import mysql.connector
+import psycopg2
 
 from adaptors.adaptor import Adaptor
 from database_objects import Database, Table, KeyType, FieldType, Key, Field, DataException, DatatypeException
 
 
-class MySqlAdaptor(Adaptor):
-    """ Connection string is mysql://user:pass@hostname/database """
-    __blank_connection__ = "mysql://u:p@h/d"
+class PgSqlAdaptor(Adaptor):
+    """ Connection string is pgsql://user:pass@hostname/database """
+    __blank_connection__ = "pgsql://u:p@h/d"
 
     def __init__(self, connection, naming):
         super().__init__(connection, naming)
 
-        match = re.match(r"mysql:\/\/(\w+):(\w+)@(\w+)\/(\w+)", self.connection)
+        match = re.match(r"pgsql:\/\/(\w+):(\w+)@(\w+)\/(\w+)", self.connection)
         if match:
             self.user = match.group(1)
             self.password = match.group(2)
@@ -24,14 +24,14 @@ class MySqlAdaptor(Adaptor):
             raise DataException("Invalid connection string")
 
     def import_schema(self, db_name: str) -> Database:
-        connection = mysql.connector.connect(user=self.user, password=self.password, host=self.hostname,
-                                             database=self.database)
+        connection = psycopg2.connect(user=self.user, password=self.password, host=self.hostname,
+                                      database=self.database)
 
         if db_name is None:
             db_name = self.database
 
         database = Database(self.naming.string_to_name(db_name))
-        cursor = connection.cursor(buffered=True)
+        cursor = connection.cursor()
         print("Processing tables...")
         cursor.execute("select TABLE_NAME from INFORMATION_SCHEMA.tables where TABLE_SCHEMA = 'test' and "
                        "TABLE_TYPE = 'BASE TABLE'")
@@ -106,22 +106,23 @@ class MySqlAdaptor(Adaptor):
         return ""
 
     def escape_field_list(self, values: List[str]) -> List[str]:
-        return [f"`{value}`" for value in values]
+        return [f"\"{value}\"" for value in values]
 
     def generate_drop_script(self, table: Table) -> str:
-        return f"DROP TABLE `{table.name.raw()}`;"
+        return f"DROP TABLE \"{table.name.raw()}\";"
 
     @staticmethod
     def get_field_default(field: Field) -> str:
         if field.type == FieldType.String or field.type == FieldType.Datetime:
             return f"'{field.default}'"
+        return field.default
 
     def generate_create_script(self, table: Table) -> str:
         sql: list[str] = []
         for field in table.fields:
-            sql.append(f"`{field.name.raw()}` {self.get_field_type(field.type, field.size, field.scale)}"
+            sql.append(f"\"{field.name.raw()}\" {self.get_field_type(field.type, field.size, field.scale)}"
                        f"{self.get_field_size(field)} {'NOT NULL' if field.required else 'NULL'}"
-                       f"{' AUTO_INCREMENT' if field.auto_increment else ''}"
+                       f"{' GENERATED ALWAYS AS IDENTITY' if field.auto_increment else ''}"
                        f"{' DEFAULT (' + self.get_field_default(field) + ')' if field.default else ''}")
         if table.pk:
             sql.append(f"PRIMARY KEY ({','.join(table.pk.fields)})")
@@ -130,15 +131,15 @@ class MySqlAdaptor(Adaptor):
             sql.append(f"FOREIGN KEY ({','.join(self.escape_field_list(fk.fields))}) REFERENCES "
                        f"{fk.primary_table}({','.join(self.escape_field_list(fk.primary_fields))})")
         joiner = ',\n\t'
-        result = f"CREATE TABLE `{table.name.raw()}` (\n\t{joiner.join(sql)}\n);\n"
+        result = f"CREATE TABLE \"{table.name.raw()}\" (\n\t{joiner.join(sql)}\n);\n"
 
         for key in table.keys:
             if key.key_type == KeyType.Unique:
-                result += f"CREATE UNIQUE INDEX `{key.name.raw()}` ON {table.name.raw()} " \
+                result += f"CREATE UNIQUE INDEX \"{key.name.raw()}\" ON {table.name.raw()} " \
                           f"({','.join(self.escape_field_list(key.fields))});\n"
 
             elif key.key_type == KeyType.Index:
-                result += f"CREATE INDEX `{key.name.raw()}` ON {table.name.raw()} " \
+                result += f"CREATE INDEX \"{key.name.raw()}\" ON {table.name.raw()} " \
                           f"({','.join(self.escape_field_list(key.fields))});\n"
 
         return result
@@ -196,15 +197,9 @@ class MySqlAdaptor(Adaptor):
         elif value == "bigint":
             field.type = FieldType.Integer
             field.size = 8
-        elif value == "tinyint":
-            field.type = FieldType.Integer
-            field.size = 1
         elif value == "smallint":
             field.type = FieldType.Integer
             field.size = 2
-        elif value == "mediumint":
-            field.type = FieldType.Integer
-            field.size = 3
         elif value == "float" or value == "real":
             field.type = FieldType.Float
             field.size = 4
@@ -214,14 +209,14 @@ class MySqlAdaptor(Adaptor):
         elif value == "boolean" or value == "bool":
             field.type = FieldType.Boolean
             field.size = 1
-        elif value == "decimal" or value == "money":
+        elif value == "decimal" or value == "money" or value == "numeric":
             field.type = FieldType.Decimal
             field.size = precision
             field.scale = scale
         elif value == "string" or value == "varchar" or value == "char":
             field.type = FieldType.String
             field.size = size
-        elif value == "datetime" or value == "date":
+        elif value == "timestamp" or value == "date":
             field.type = FieldType.Datetime
             field.size = 0
         elif value == "none" or value == "undefined":
@@ -233,12 +228,8 @@ class MySqlAdaptor(Adaptor):
 
     def get_field_type(self, field_type: FieldType, size: int = 0, scale: int = 0) -> str:
         if field_type == FieldType.Integer:
-            if size == 1:
-                return "TINYINT"
-            elif size == 2:
+            if size == 1 or size == 2:
                 return "SMALLINT"
-            elif size == 3:
-                return "MEDIUMINT"
             elif size == 4:
                 return "INT"
             elif size == 8:
@@ -257,11 +248,11 @@ class MySqlAdaptor(Adaptor):
                 raise DatatypeException("Unknown float size")
 
         elif field_type == FieldType.Decimal:
-            return "DECIMAL"
+            return "NUMERIC"
         elif field_type == FieldType.Datetime:
-            return "DATETIME"
+            return "TIMESTAMP"
         elif field_type == FieldType.Boolean:
-            return "TINYINT"
+            return "SMALLINT"
         else:
             raise DatatypeException("Unknown field type ")
 

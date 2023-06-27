@@ -2,6 +2,7 @@ import re
 
 from adaptors.adaptor import Adaptor
 from adaptors.mysql_adaptor import MySqlAdaptor
+from adaptors.pgsql_adaptor import PgSqlAdaptor
 from adaptors.sqlite_adaptor import SqliteAdaptor
 from naming import Naming
 
@@ -18,6 +19,8 @@ class AdaptorFactory(object):
                 return SqliteAdaptor(connection_string, naming)
             elif db_type == "mysql":
                 return MySqlAdaptor(connection_string, naming)
+            elif db_type == "pgsql":
+                return PgSqlAdaptor(connection_string, naming)
 
     @classmethod
     def get_adaptor_for_dbtype(cls, dbtype: str, naming: Naming) -> Adaptor:
@@ -25,3 +28,5 @@ class AdaptorFactory(object):
             return SqliteAdaptor("memory", naming)
         elif dbtype.lower() == "mysql":
             return MySqlAdaptor(MySqlAdaptor.__blank_connection__, naming)
+        elif dbtype.lower() == "pgsql":
+            return PgSqlAdaptor(PgSqlAdaptor.__blank_connection__, naming)
